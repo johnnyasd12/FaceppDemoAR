@@ -157,7 +157,7 @@ public class OpenglActivity extends Activity
         snapshotButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-				FaceArObj.takeSnapShot(faceARs,mostRecentPic,mICamera,OpenglActivity.this,mHandler);
+				FaceArObj.takeSnapShot(faceARs,mostRecentPic,mICamera,OpenglActivity.this,mHandler,!isBackCamera);
             }
         });
 	}

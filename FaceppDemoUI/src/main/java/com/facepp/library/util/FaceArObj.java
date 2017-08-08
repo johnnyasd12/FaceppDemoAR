@@ -270,13 +270,14 @@ public class FaceArObj {
 
     }
     // 拍照用
-    public static void takeSnapShot(final ArrayList<FaceArObj> allFaces, byte[] imgByte, final ICamera ica, final Activity activity, Handler handler){
+    public static void takeSnapShot(final ArrayList<FaceArObj> allFaces, byte[] imgByte, final ICamera ica, final Activity activity, Handler handler, final boolean isMirror){
         boolean isFrontCamera = true;
         final boolean isTestImg = true;
         final String LOG_TAG = "snapshot";
         Camera camera = ica.mCamera;
         //Log.d("snapshot","camera = "+(camera==null?"null":"notNull"));
         final Bitmap combineBitmap = ica.getBitMap(imgByte,camera,isFrontCamera); // 先畫上照片bitmap
+        Log.d("snapshot","isMirror = "+isMirror);
         Log.d("snapshot","picBitmap "+combineBitmap.getWidth()+"*"+combineBitmap.getHeight());
         final Canvas combineCanvas = new Canvas(combineBitmap);
         combineCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.DST); // 只設定顏色的話預設就為PorterDuff.Mode.SRC_OVER 貌似改善黑畫面
@@ -305,6 +306,22 @@ public class FaceArObj {
                 }else{ // 直接使用拍照的bitmap, 這裡應該可以空白
 
                 }
+                Bitmap finalBitmap;
+                if(isMirror){
+                    Matrix matrixMirror = new Matrix();
+                    matrixMirror.preScale(-1.0f, 1.0f);
+
+                    finalBitmap = Bitmap.createBitmap(
+                            combineBitmap,
+                            0,
+                            0,
+                            combineBitmap.getWidth(),
+                            combineBitmap.getHeight(),
+                            matrixMirror,
+                            false);
+
+                }else{finalBitmap = combineBitmap;}
+
                 // 將bitmap存到檔案
                 SimpleDateFormat sdFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
                 Date date = new Date();
@@ -319,7 +336,7 @@ public class FaceArObj {
                 }
                 File screenshotFile = new File(pictureFolder, screenshotFileName);
                 try {
-                    saveBitmapToFileAsPng(combineBitmap, screenshotFile);
+                    saveBitmapToFileAsPng(finalBitmap, screenshotFile);
                 } catch (IOException e) {
                     String msg = "Unable to save screenshot";
                     Toast.makeText(allFaces.get(0).mContext, msg, Toast.LENGTH_SHORT).show();
@@ -327,6 +344,20 @@ public class FaceArObj {
                     return;
                 }
                 addPngToGallery(activity, screenshotFile);
+
+                if(isTestImg){
+                    final Bitmap displayBitmap = Bitmap.createBitmap(finalBitmap);
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            ImageView testImgView = (ImageView)activity.findViewById(R.id.opengl_image);
+                            testImgView.setImageBitmap(displayBitmap);
+                            //displayBitmap.recycle(); // 會當掉QQ trying to use a recycled bitmap
+                        }
+                    });
+                }
+                finalBitmap.recycle();
+                combineBitmap.recycle();
             }
         });
 
@@ -335,11 +366,7 @@ public class FaceArObj {
 
 
 
-        if(isTestImg){
-            // 因為貌似是在main thread裡面call這個function所以不用runOnUiThread
-            ImageView testImgView = (ImageView)activity.findViewById(R.id.opengl_image);
-            testImgView.setImageBitmap(combineBitmap);
-        }
+
         //picBitmap.recycle();
 
     }
@@ -357,7 +384,7 @@ public class FaceArObj {
         try {
             FileOutputStream outputStream = new FileOutputStream(file);
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-            bitmap.recycle();
+            //bitmap.recycle();
             outputStream.flush();
             outputStream.close();
             Log.d("snapshot","saveBitmapToFileAsPng finished");

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_scratch"
+    android:oneshot="true">
+    <item android:drawable="@drawable/rbnose" android:duration="1000" />
+    <item android:drawable="@drawable/faceproperty_blue" android:duration="130" />
+    <item android:drawable="@drawable/mrbnose" android:duration="130" />
+    <item android:drawable="@drawable/faceproperty_gray" android:duration="130" />
+
+    </animation-list>
