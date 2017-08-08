@@ -1,6 +1,7 @@
 package com.facepp.library.util;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -13,13 +14,16 @@ import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.hardware.Camera;
 import android.opengl.GLSurfaceView;
+import android.os.Environment;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.facepp.library.R;
 
@@ -56,9 +60,9 @@ public class FaceArObj {
 
     // 會變的參數
     PointF[] facePoints;
-    float[] arCenterXs; // TODO 畫圖座標要減去寬跟高的一半
+    float[] arCenterXs; // 畫圖座標要減去這個資料寬跟高的一半
     float[] arCenterYs;
-    float[] arWidths; // TODO width跟height只需決定其中一個, 另一個用原圖比例算出
+    float[] arWidths; // width跟height只需決定其中一個, 另一個用原圖比例算出
     float[] arHeights;
     float arRotateAngle;
     float arPivotX;
@@ -115,10 +119,10 @@ public class FaceArObj {
                     */
                     imgParentLayout.addView(arImgViews[i]);
                     arImgViews[i].setImageBitmap(arBitmaps[i]);
+                    Log.d("FaceArObj","arImageView setImageBitmap");
                     imgParentLayout.addView(arDebugTxtViews[i]);
                 }
-                //TODO 改成全部AR
-                Log.d("FaceArObj","arImageView setImageBitmap");
+                //
                 /*
                 arImgViews[AR_EAR].setImageBitmap(arBitmaps[AR_EAR]);
                 arImgViews[AR_NOSE].setImageBitmap(arBitmaps[AR_NOSE]);
@@ -133,6 +137,7 @@ public class FaceArObj {
         facePoints = fPoints;
         // 以81個點來說
         // 1= (圖)左眼左側,
+        // 2 = 左眼右側, 10 = 右眼左側
         // 34 = 鼻頭, 35 = 鼻底, 64 = 下巴,
         // 62 = (圖)左臉, 63 = (圖)右臉,
         // 19 = (圖)左眉右側, 26 = (圖)右眉左側
@@ -155,7 +160,8 @@ public class FaceArObj {
 
         float faceWidth = (float) sqrt((fPoints[63].x - fPoints[62].x) * (fPoints[63].x - fPoints[62].x) + (fPoints[63].y - fPoints[62].y) * (fPoints[63].y - fPoints[62].y));
         float faceHeight = //(float) sqrt((fPoints[64].y - fPoints[34].y) * (fPoints[64].y - fPoints[34].y) + (fPoints[64].x - fPoints[34].x) * (fPoints[64].x - fPoints[34].x)) * 2;
-                (float) sqrt((fPoints[19].y - fPoints[40].y) * (fPoints[19].y - fPoints[40].y) + (fPoints[19].x - fPoints[40].x) * (fPoints[19].x - fPoints[40].x)) * 3; // 左鼻&左眉距離 * 3
+                //(float) sqrt((fPoints[19].y - fPoints[40].y) * (fPoints[19].y - fPoints[40].y) + (fPoints[19].x - fPoints[40].x) * (fPoints[19].x - fPoints[40].x)) * 3; // 左鼻&左眉距離 * 3
+                (float)sqrt((fPoints[2].y - fPoints[40].y) * (fPoints[2].y - fPoints[40].y) + (fPoints[2].x - fPoints[40].x) * (fPoints[2].x - fPoints[40].x)) * 5.5f;// 左鼻&左眼右側距離*6
         float initEarX = (fPoints[62].x + fPoints[63].x) / 2;
         float initEarY = fPoints[64].y - faceHeight;
             // = fPoints[34].y - faceHeight/3; // 鼻頭座標 - (鼻子到眉毛的距離)
@@ -229,7 +235,6 @@ public class FaceArObj {
                         arImgViews[arId].setRotation(drawRotateAngle);
                         arImgViews[arId].setX(drawArX);
                         arImgViews[arId].setY(drawArY);
-                        Log.d("FaceArObj", "after setImageBitmap");
                         //arImgViews[arId].setImageResource(arDrawableIds[arId]);
                     }
                 }
@@ -251,14 +256,11 @@ public class FaceArObj {
                 for(int i = 0; i < arImgViews.length; i++) { // 移除這張臉的所有AR
                     imgParentLayout.removeView(arImgViews[i]);
                     imgParentLayout.removeView(arDebugTxtViews[i]);
-                    Log.d("FaceArObj","after remove ImgView from layout");
 
                     // 為了避免 try to use recycled bitmap 而把下面的code也放到runOnUiThread裡面
                     arImgViews[i] = null;
-                    Log.d("FaceArObj","after imageView assigned null");
                     if(arBitmaps[i]!=null && !arBitmaps[i].isRecycled()) {
                         arBitmaps[i].recycle();
-                        Log.d("FaceArObj","after recycle arBitmap");
                     }
                 }
 
@@ -268,9 +270,10 @@ public class FaceArObj {
 
     }
     // 拍照用
-    public static void takeSnapShot(final ArrayList<FaceArObj> allFaces, byte[] imgByte, ICamera ica, Activity activity,Handler handler){
+    public static void takeSnapShot(final ArrayList<FaceArObj> allFaces, byte[] imgByte, final ICamera ica, final Activity activity, Handler handler){
         boolean isFrontCamera = true;
-        boolean isTestImg = true;
+        final boolean isTestImg = true;
+        final String LOG_TAG = "snapshot";
         Camera camera = ica.mCamera;
         //Log.d("snapshot","camera = "+(camera==null?"null":"notNull"));
         final Bitmap combineBitmap = ica.getBitMap(imgByte,camera,isFrontCamera); // 先畫上照片bitmap
@@ -284,29 +287,46 @@ public class FaceArObj {
                 if(allFaces.size()>0) {// 若有偵測到臉
                     for (FaceArObj faceArObj : allFaces) { // 對於每一張臉
                         for (int i = 0; i < faceArObj.AR_SIZE; i++) { // 對於臉上的每個AR
+                            float ca2bitmapRatio = combineBitmap.getWidth()/(float)ica.cameraHeight; // 因為Icamera return顛倒的 所以width變成height
                             Bitmap arBitmap = faceArObj.arBitmaps[i];
-                            Bitmap arBitmap2 = Bitmap.createScaledBitmap(arBitmap,(int)faceArObj.arWidths[i],(int)faceArObj.arHeights[i],false);
-//                            combineCanvas.drawBitmap(arBitmap2,
-//                                    faceArObj.arCenterXs[i] - faceArObj.arWidths[i]/2,
-//                                    faceArObj.arCenterYs[i] - faceArObj.arHeights[i]/2,
-//                                    null);
+                            Bitmap arBitmap2 = Bitmap.createScaledBitmap(arBitmap,
+                                    (int)(faceArObj.arWidths[i] * ca2bitmapRatio),
+                                    (int)(faceArObj.arHeights[i] * ca2bitmapRatio),false);
 
                             drawRotateBitmapByCenter(combineCanvas,null,arBitmap2, faceArObj.arRotateAngle,
-                                    faceArObj.arCenterXs[i] - faceArObj.arWidths[i]/2,
-                                    faceArObj.arCenterYs[i] - faceArObj.arHeights[i]/2,
-                                    faceArObj.arPivotX,faceArObj.arPivotY);
+                                    (faceArObj.arCenterXs[i] - faceArObj.arWidths[i]/2) * ca2bitmapRatio,
+                                    (faceArObj.arCenterYs[i] - faceArObj.arHeights[i]/2) * ca2bitmapRatio,
+                                    (faceArObj.arPivotX) * ca2bitmapRatio,
+                                    (faceArObj.arPivotY) * ca2bitmapRatio);
 
                             arBitmap2.recycle();
                         }
                     }
-                }else{ // TODO 直接拍照
+                }else{ // 直接使用拍照的bitmap, 這裡應該可以空白
 
                 }
                 // 將bitmap存到檔案
-                SimpleDateFormat sdFormat = new SimpleDateFormat("yyyyMMdd HHmmss");
+                SimpleDateFormat sdFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
                 Date date = new Date();
-                String strDate = sdFormat.format(date);
-                saveBitmapToInternalStorage(allFaces.get(0).mContext,combineBitmap,strDate);
+                String timestamp = sdFormat.format(date);
+                String screenshotFileName = timestamp + ".png";
+                File pictureFolder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "FaceppARdemo");
+                if (!pictureFolder.exists()) {
+                    if (!pictureFolder.mkdir()) {
+                        Log.e("snapshot", "Unable to create directory: " + pictureFolder.getAbsolutePath());
+                        return;
+                    }
+                }
+                File screenshotFile = new File(pictureFolder, screenshotFileName);
+                try {
+                    saveBitmapToFileAsPng(combineBitmap, screenshotFile);
+                } catch (IOException e) {
+                    String msg = "Unable to save screenshot";
+                    Toast.makeText(allFaces.get(0).mContext, msg, Toast.LENGTH_SHORT).show();
+                    Log.e(LOG_TAG, msg, e);
+                    return;
+                }
+                addPngToGallery(activity, screenshotFile);
             }
         });
 
@@ -333,36 +353,29 @@ public class FaceArObj {
         canvas.drawBitmap(bitmap, matrix, paint);
         //canvas.drawBitmap(bitmap,posX,posY,null); 怒不旋轉
     }
-    private static void saveBitmapToInternalStorage(@NonNull final Context context, @NonNull final Bitmap bitmapImage, @NonNull final String fileName) {
-
-        // path to /data/data/yourapp/app_data/images
-        String LOG_TAG = "saveBitmapToInternalStorage";
-        File directory = context.getDir("images", Context.MODE_PRIVATE);
-
-        // File location to save image
-        File imagePath = new File(directory, fileName);
-
-        FileOutputStream fos = null;
+    public static void saveBitmapToFileAsPng(@NonNull final Bitmap bitmap, @NonNull final File file) throws IOException {
         try {
-            fos = new FileOutputStream(imagePath);
-
-            // Use the compress method on the BitMap object to write image to the OutputStream
-            bitmapImage.compress(Bitmap.CompressFormat.PNG, 100, fos);
-            fos.flush();
-        } catch (FileNotFoundException e) {
-            Log.e(LOG_TAG, "Exception while trying to save file to internal storage: " + imagePath, e);
+            FileOutputStream outputStream = new FileOutputStream(file);
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            bitmap.recycle();
+            outputStream.flush();
+            outputStream.close();
+            Log.d("snapshot","saveBitmapToFileAsPng finished");
         } catch (IOException e) {
-            Log.e(LOG_TAG, "Exception while trying to flush the output stream", e);
-        } finally {
-            if (fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    Log.e(LOG_TAG, "Exception wile trying to close file output stream.", e);
-                }
-            }
+            throw new FileNotFoundException("Unable to save bitmap to file: " + file.getPath() + "\n" + e.getLocalizedMessage());
         }
     }
+    public static void addPngToGallery(@NonNull final Context context, @NonNull final File imageFile) {
+        ContentValues values = new ContentValues();
+
+        values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+        values.put(MediaStore.MediaColumns.DATA, imageFile.getAbsolutePath());
+
+        context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        Log.d("snapshot","addPngToGallery finished");
+    }
+
 
     private static Bitmap decodeSampledBitmapFromResource(Resources res, int resId,
                                                          int reqWidth, int reqHeight) {
