@@ -12,6 +12,9 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.hardware.Camera;
 import android.opengl.GLSurfaceView;
 import android.os.Environment;
@@ -47,6 +50,7 @@ public class FaceArObj {
     public final int AR_SIZE = 2;
     public boolean DEBUG_TXT_VISIBLE = true;
     public boolean FACE_AR_ACTIVATE = true;
+    public boolean IS_ANIMATE_IMG = true;
 
     // 不變的參數
     Context mContext;
@@ -103,6 +107,7 @@ public class FaceArObj {
         for(int i = 0; i < arBitmaps.length; i++){
             arBitmaps[i] = BitmapFactory.decodeResource(mContext.getResources(), arDrawableIds[i]); // 在onCreate後才能拿到context, 畫Bitmap
         }*/
+        final int gifId = R.id.main_scratch;
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -118,7 +123,23 @@ public class FaceArObj {
                     arBitmaps[i] = null;
                     */
                     imgParentLayout.addView(arImgViews[i]);
-                    arImgViews[i].setImageBitmap(arBitmaps[i]);
+                    //arImgViews[i].setImageBitmap(arBitmaps[i]);
+                    if(IS_ANIMATE_IMG) {
+                        AnimationDrawable animationDrawable;
+                        arImgViews[i].setBackgroundResource(R.drawable.main_scratch);
+                        animationDrawable = (AnimationDrawable)arImgViews[i].getBackground();
+
+//                        animationDrawable = new AnimationDrawable();
+//                        animationDrawable.setOneShot(false); // True = only once, False = continuous
+//                        int[] resources = {R.drawable.debug_blue, R.drawable.debug_gray};
+//                        int duration = 30;
+//                        for (int resource : resources) {
+//                            animationDrawable.addFrame(ContextCompat.getDrawable(mContext, resource), duration);
+//                        }
+//                        arImgViews[i].setBackground(animationDrawable);
+
+                        animationDrawable.start();
+                    }
                     Log.d("FaceArObj","arImageView setImageBitmap");
                     imgParentLayout.addView(arDebugTxtViews[i]);
                 }
@@ -290,6 +311,13 @@ public class FaceArObj {
                         for (int i = 0; i < faceArObj.AR_SIZE; i++) { // 對於臉上的每個AR
                             float ca2bitmapRatio = combineBitmap.getWidth()/(float)ica.cameraHeight; // 因為Icamera return顛倒的 所以width變成height
                             Bitmap arBitmap = faceArObj.arBitmaps[i];
+                            // 動畫用
+                            if(faceArObj.IS_ANIMATE_IMG){
+                                arBitmap = drawableToBitmap(
+                                        getAnimateCurrentDrawable(
+                                                (AnimationDrawable) faceArObj.arImgViews[i].getBackground()));
+                            }
+
                             Bitmap arBitmap2 = Bitmap.createScaledBitmap(arBitmap,
                                     (int)(faceArObj.arWidths[i] * ca2bitmapRatio),
                                     (int)(faceArObj.arHeights[i] * ca2bitmapRatio),false);
@@ -352,7 +380,7 @@ public class FaceArObj {
                         public void run() {
                             ImageView testImgView = (ImageView)activity.findViewById(R.id.opengl_image);
                             testImgView.setImageBitmap(displayBitmap);
-                            //displayBitmap.recycle(); // 會當掉QQ trying to use a recycled bitmap
+                            //displayBitmap.recycle(); // 會當機QQ trying to use a recycled bitmap
                         }
                     });
                 }
@@ -370,6 +398,49 @@ public class FaceArObj {
         //picBitmap.recycle();
 
     }
+    // 動畫用
+    private static Drawable getAnimateCurrentDrawable(AnimationDrawable myAnimation){
+        //myAnimation.stop();
+
+        int frameNumber = -1;
+        // Get the frame of the animation
+        Drawable currentFrame, checkFrame;
+        currentFrame = myAnimation.getCurrent();
+        // Checks the position of the frame
+        /*for (int i = 0; i < myAnimation.getNumberOfFrames(); i++) {
+            checkFrame = myAnimation.getFrame(i);
+            if (checkFrame == currentFrame) {
+                frameNumber = i;
+                break;
+            }
+        }*/
+        //return frameNumber;
+        return currentFrame;
+    }
+
+    // 動畫用
+    private static Bitmap drawableToBitmap (Drawable drawable) {
+        Bitmap bitmap = null;
+
+        if (drawable instanceof BitmapDrawable) {
+            BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
+            if(bitmapDrawable.getBitmap() != null) {
+                return bitmapDrawable.getBitmap();
+            }
+        }
+
+        if(drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
+            bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888); // Single color bitmap will be created of 1x1 pixel
+        } else {
+            bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        }
+
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
+    }
+
     private static void drawRotateBitmapByCenter(Canvas canvas, Paint paint, Bitmap bitmap,
                                           float rotation, float posX, float posY, float centerX, float centerY) {// 旋轉bitmap本身
         //if(mirrorPoints){posX=config.imageWidth-posX;}
