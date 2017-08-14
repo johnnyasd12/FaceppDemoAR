@@ -71,7 +71,7 @@
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
-            android:text="嘿嘿" />
+            android:text="拍照" />
     </RelativeLayout>
 
 </RelativeLayout>

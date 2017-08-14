@@ -314,7 +314,9 @@ public class OpenglActivity extends Activity
 						for(int i = 0; i < faces.length-faceARs.size(); i++) {
 							// AR用 new一個FaceArObj & 建構 然後加到ArrayList
 							FaceArObj faceObj = new FaceArObj(OpenglActivity.this, OpenglActivity.this,
-									imageParentLayout, R.drawable.rbnose, R.drawable.rbear);
+									imageParentLayout, R.drawable.main_scratch, R.drawable.debug_blue
+									//,new int[]{R.drawable.main_scratch}
+							);
 							faceObj.init();
 							Log.d("add 1 of faceARs","before add, faceARs size = "+faceARs.size());
 							faceARs.add(faceObj);

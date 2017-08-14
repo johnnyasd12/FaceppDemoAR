@@ -50,7 +50,7 @@ public class FaceArObj {
     public final int AR_SIZE = 2;
     public boolean DEBUG_TXT_VISIBLE = true;
     public boolean FACE_AR_ACTIVATE = true;
-    public boolean IS_ANIMATE_IMG = true;
+    public boolean IS_ANIMATE_IMG = false;
 
     // 不變的參數
     Context mContext;
@@ -58,13 +58,13 @@ public class FaceArObj {
     RelativeLayout imgParentLayout; // AR要畫在這個Layout上
     final ImageView[] arImgViews; // 要畫的各部位AR
     final TextView[] arDebugTxtViews; // 各部位AR debug用
-    TextView[] arTxtViews; // 各部位txtView TODO setVisibility(View.INVISIBLE)
     int[] arDrawableIds; // R.drawable.檔案名稱
     Bitmap[] arBitmaps; // 各部位AR要貼的圖
+    //int[] animateDrawableIds; // AR貼圖是動畫的AR index
 
     // 會變的參數
     PointF[] facePoints;
-    float[] arCenterXs; // 畫圖座標要減去這個資料寬跟高的一半
+    float[] arCenterXs; // 畫圖座標 之後要減去這個AR寬跟高的一半
     float[] arCenterYs;
     float[] arWidths; // width跟height只需決定其中一個, 另一個用原圖比例算出
     float[] arHeights;
@@ -73,12 +73,14 @@ public class FaceArObj {
     float arPivotY;
 
     public FaceArObj(Context context, Activity activity, RelativeLayout parentL,
-                     int noseDrawableId,// ImageView noseImageView,
-                     int earDrawableId)//, ImageView earImageView)
+                     int noseDrawableId,
+                     int earDrawableId
+                     )
     {
         mContext = context;
         mActivity = activity;
         imgParentLayout = parentL;
+        //animateDrawableIds = animationDrawableIds;
         // 初始化各部位 ImageView 和txtView
         arImgViews = new ImageView[AR_SIZE];//{noseImageView, earImageView};
         arImgViews[AR_NOSE] = new ImageView(context);
@@ -107,40 +109,29 @@ public class FaceArObj {
         for(int i = 0; i < arBitmaps.length; i++){
             arBitmaps[i] = BitmapFactory.decodeResource(mContext.getResources(), arDrawableIds[i]); // 在onCreate後才能拿到context, 畫Bitmap
         }*/
-        final int gifId = R.id.main_scratch;
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 //earImgView.setLayoutParams(new RelativeLayout.LayoutParams(1,1)); // 初始長寬設1
                 //earImgView.setImageBitmap(arBitmaps[AR_EAR]);
                 //imgParentLayout.addView(earImgView);
-                for(int i = 0; i < arImgViews.length; i++){
+                for(int i = 0; i < arImgViews.length; i++){ // 對於臉上的每個AR
                     //arImgViews[i].setLayoutParams(new RelativeLayout.LayoutParams(1,1)); // 初始長寬設1
-/*
-                    arImgViews[i].setImageBitmap(arBitmaps[i]);
-                    imgParentLayout.addView(arImgViews[i]);
-                    arBitmaps[i].recycle();
-                    arBitmaps[i] = null;
-                    */
+
                     imgParentLayout.addView(arImgViews[i]);
                     //arImgViews[i].setImageBitmap(arBitmaps[i]);
-                    if(IS_ANIMATE_IMG) {
+                    arImgViews[i].setBackgroundResource(arDrawableIds[i]);
+                    Log.d("animate","arDrawableIds["+i+"] = "+arDrawableIds[i]);
+
+                    if(arImgViews[i].getBackground() instanceof AnimationDrawable){//animateDrawableIds.length!=0 && isContainInt(animateDrawableIds,arDrawableIds[i])) { // 若存在動畫drawable而且這個AR有使用動畫
+                        Log.d("animate", "init() arDrawableId[" + i + "] is AnimationDrawable");
                         AnimationDrawable animationDrawable;
-                        arImgViews[i].setBackgroundResource(R.drawable.main_scratch);
-                        animationDrawable = (AnimationDrawable)arImgViews[i].getBackground();
-
-//                        animationDrawable = new AnimationDrawable();
-//                        animationDrawable.setOneShot(false); // True = only once, False = continuous
-//                        int[] resources = {R.drawable.debug_blue, R.drawable.debug_gray};
-//                        int duration = 30;
-//                        for (int resource : resources) {
-//                            animationDrawable.addFrame(ContextCompat.getDrawable(mContext, resource), duration);
-//                        }
-//                        arImgViews[i].setBackground(animationDrawable);
-
+                        animationDrawable = (AnimationDrawable) arImgViews[i].getBackground();
                         animationDrawable.start();
                     }
+
                     Log.d("FaceArObj","arImageView setImageBitmap");
+                    // 文字DEBUG訊息
                     imgParentLayout.addView(arDebugTxtViews[i]);
                 }
                 //
@@ -192,9 +183,9 @@ public class FaceArObj {
         float initNoseWidth = faceWidth/2;
         //arWidths[AR_NOSE] = initNoseWidth;
         //
-        tuneAR(ca,glSurfaceView,AR_EAR,isMirror,rAngle,initPivotX,initPivotY,
-                initEarX,initEarY,initEarWidth);
         tuneAR(ca,glSurfaceView,AR_NOSE,isMirror,rAngle,initPivotX,initPivotY,
+                initEarX,initEarY,initEarWidth);
+        tuneAR(ca,glSurfaceView,AR_EAR,isMirror,rAngle,initPivotX,initPivotY,
                 noseX,noseY,initNoseWidth);
 
     }
@@ -205,7 +196,7 @@ public class FaceArObj {
     private void tuneAR(ICamera ca, GLSurfaceView glSurfaceView, final int arId, //
                         boolean isMirror, float rotateAngle, float initPivotX, float initPivotY,
                         //float noseInitX, float noseInitY, float noseInitWidth,
-                        float imgInitX, float imgInitY, float imgInitWidth)
+                        float imgInitX, float imgInitY, final float imgInitWidth)
     { // 變更ImageView座標&角度&大小
         /**
          *                    @param cameraWidth 在輸入cameraWidth跟Height時, 要把mICamera.getHeight當成Width, 反之亦然, 因為mICamera return的是顛倒的
@@ -219,8 +210,25 @@ public class FaceArObj {
         arCenterXs[arId] = imgInitX;
         arCenterYs[arId] = imgInitY;
         arWidths[arId] = imgInitWidth;
-        float imgInitHeight = arBitmaps[arId].getHeight() * imgInitWidth/arBitmaps[arId].getWidth();
-        arHeights[arId] = imgInitHeight;
+        float imgInitHeight;
+        Log.d("animate","arId: "+arId);
+        Log.d("animate","this imageView is "+(arImgViews[arId]==null?"NULL":"NOT NULL"));
+        mActivity.runOnUiThread(new Runnable() { // 因為arImgViews.setImageBackground()是在UiThread執行, 所以若不放在UiThread可能會還沒set就跑這段code
+            @Override
+            public void run() {
+                if(arImgViews[arId].getBackground() instanceof AnimationDrawable){//animateDrawableIds.length!=0 && isContainInt(animateDrawableIds,arDrawableIds[arId])) { // 若存在動畫drawable而且這個AR有使用動畫
+                    AnimationDrawable drawable = (AnimationDrawable)arImgViews[arId].getBackground(); // 取得drawable動畫, 可能因為不在runOnUiThread裡面所以在執行這段的時候 imageView還沒被init?
+                    Log.d("animate","this drawable is "+(drawable==null?"NULL":"NOT NULL"));
+                    Log.d("animate","tuneAR arDrawableId["+arId+"] is AnimationDrawable");
+                    arHeights[arId] = drawable.getIntrinsicHeight() * imgInitWidth/drawable.getIntrinsicWidth();
+                }else {
+                    Log.d("animate","tuneAR arDrawableId["+arId+"] is NOT AnimationDrawable");
+                    arHeights[arId] = arBitmaps[arId].getHeight() * imgInitWidth / arBitmaps[arId].getWidth();
+                }
+            }
+        });
+
+        imgInitHeight = arHeights[arId];
         // 計算比例
         float cameraWidth = ca.cameraHeight, cameraHeight = ca.cameraWidth; // 這邊是故意打反的, 因為return的cameraHeight才是左右寬度
         float surfaceWidth = glSurfaceView.getWidth(), surfaceHeight = glSurfaceView.getHeight(); // 得到surface寬高
@@ -238,7 +246,14 @@ public class FaceArObj {
         final float drawArX = (imgInitX - imgInitWidth/2) * ca2LayoutWidthRatio;
         final float drawArY = (imgInitY - imgInitHeight/2) * ca2LayoutHeightRatio;
         final float drawArWidth = imgInitWidth * ca2LayoutWidthRatio;
-        final float drawArHeight = arBitmaps[arId].getHeight() * drawArWidth/arBitmaps[arId].getWidth(); // 依據想要的寬度和原圖比例計算高度
+        float arHeight;
+//        if(animateDrawableIds.length!=0 && isContainInt(animateDrawableIds,arDrawableIds[arId])) { // 若存在動畫drawable而且這個AR有使用動畫
+//            AnimationDrawable animationDrawable = (AnimationDrawable)arImgViews[arId].getBackground();
+//            arHeight = animationDrawable.getIntrinsicHeight() * drawArWidth/animationDrawable.getIntrinsicWidth();
+//        }else {
+//            arHeight = arBitmaps[arId].getHeight() * drawArWidth / arBitmaps[arId].getWidth(); // 依據想要的寬度和原圖比例計算高度
+//        }
+        final float drawArHeight = arHeights[arId] * ca2LayoutHeightRatio;
         final float drawPivotX = initPivotX * ca2LayoutWidthRatio;
         final float drawPivotY = initPivotY * ca2LayoutHeightRatio;
         final float drawRotateAngle = rotateAngle;
@@ -249,7 +264,7 @@ public class FaceArObj {
             public void run() {
                 RelativeLayout.LayoutParams imgParams = new RelativeLayout.LayoutParams((int)drawArWidth, (int)drawArHeight);
                 if(FACE_AR_ACTIVATE) {
-                    if (arBitmaps[arId] != null && !arBitmaps[arId].isRecycled()) { // 為了避免 trying to use a recycled bitmap ????????????
+                    //if (arBitmaps[arId] != null && !arBitmaps[arId].isRecycled()) { // 為了避免 trying to use a recycled bitmap ????????????
                         arImgViews[arId].setLayoutParams(imgParams);
                         arImgViews[arId].setPivotX(drawPivotX - drawArX);// 這裡的座標是以imageView的左上角為基準, 而非螢幕左上角
                         arImgViews[arId].setPivotY(drawPivotY - drawArY);// 所以旋轉中心座標要扣掉畫imageView的座標
@@ -257,7 +272,7 @@ public class FaceArObj {
                         arImgViews[arId].setX(drawArX);
                         arImgViews[arId].setY(drawArY);
                         //arImgViews[arId].setImageResource(arDrawableIds[arId]);
-                    }
+                    //}
                 }
                 arDebugTxtViews[arId].setText("AR "+arId+"of Face\ndrawWidth: "+(int)drawArWidth+"\tdrawHeight: "+(int)drawArHeight);
                 arDebugTxtViews[arId].setX(drawArX);
@@ -312,7 +327,8 @@ public class FaceArObj {
                             float ca2bitmapRatio = combineBitmap.getWidth()/(float)ica.cameraHeight; // 因為Icamera return顛倒的 所以width變成height
                             Bitmap arBitmap = faceArObj.arBitmaps[i];
                             // 動畫用
-                            if(faceArObj.IS_ANIMATE_IMG){
+                            Drawable drawable = faceArObj.arImgViews[i].getBackground();
+                            if(faceArObj.arImgViews[i].getBackground() instanceof AnimationDrawable){//faceArObj.animateDrawableIds.length!=0 && isContainInt(faceArObj.animateDrawableIds,faceArObj.arDrawableIds[i])) { // 若存在動畫drawable而且這個AR有使用動畫
                                 arBitmap = drawableToBitmap(
                                         getAnimateCurrentDrawable(
                                                 (AnimationDrawable) faceArObj.arImgViews[i].getBackground()));
@@ -510,5 +526,11 @@ public class FaceArObj {
         }
 
         return inSampleSize;
+    }
+    private static boolean isContainInt(int[] arr, int num){
+        for(int element:arr){
+            if(element == num)return true;
+        }
+        return false;
     }
 }
